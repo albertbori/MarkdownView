@@ -1,0 +1,26 @@
+PODS:
+  - MMMarkdown (0.5)
+  - SDWebImage (3.7.6):
+    - SDWebImage/Core (= 3.7.6)
+  - SDWebImage/Core (3.7.6)
+
+DEPENDENCIES:
+  - MMMarkdown (from `https://github.com/albertbori/MMMarkdown`)
+  - SDWebImage
+
+EXTERNAL SOURCES:
+  MMMarkdown:
+    :git: https://github.com/albertbori/MMMarkdown
+
+CHECKOUT OPTIONS:
+  MMMarkdown:
+    :commit: ef1503d75df21a55330c48c894ceead6849ce2bb
+    :git: https://github.com/albertbori/MMMarkdown
+
+SPEC CHECKSUMS:
+  MMMarkdown: 4f7b9ebd346f067fe6560ce2b5f374d6f93e4e09
+  SDWebImage: c325cf02c30337336b95beff20a13df489ec0ec9
+
+PODFILE CHECKSUM: a56463b81dacfe9c5465053c2f7be6c4b048fb30
+
+COCOAPODS: 1.0.1
