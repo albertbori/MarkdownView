@@ -52,12 +52,7 @@ class MarkdownView: UIView, UITextViewDelegate {
         print("Parsed in \(timeInterval) seconds")
         
         start = NSDate()
-        let stackView = UIStackView()
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.axis = UILayoutConstraintAxis.Vertical
-        stackView.alignment = UIStackViewAlignment.Leading
-        stackView.distribution = UIStackViewDistribution.EqualSpacing
-        stackView.spacing = 8
+        var views = [UIView]()
         let currentText = NSMutableAttributedString()
         
         for element in document.elements {
@@ -65,21 +60,32 @@ class MarkdownView: UIView, UITextViewDelegate {
                 print("HTML")
                 currentText.appendAttributedString(NSAttributedString(string: (markdown as NSString).substringWithRange(element.range), attributes: nil))
             } else if let view = getViewForElement(element as! MMElement, document: document, currentText: currentText) {
-                tryAddTextView(currentText, to: stackView)
-                stackView.addArrangedSubview(view)
+                tryAddTextView(currentText, to: &views)
+                views.append(view)
             }
         }
         
-        tryAddTextView(currentText, to: stackView)
-        end = NSDate()
-        timeInterval = end.timeIntervalSinceDate(start)
-        print("UIView tree built in \(timeInterval) seconds")
+        tryAddTextView(currentText, to: &views)
+        
+        let stackView = UIStackView()
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.axis = UILayoutConstraintAxis.Vertical
+        stackView.alignment = UIStackViewAlignment.Leading
+        stackView.distribution = UIStackViewDistribution.EqualSpacing
+        stackView.spacing = 8
+        
+        views.forEach({ stackView.addArrangedSubview($0) })
         
         self.addSubview(stackView)
         self.topAnchor.constraintEqualToAnchor(stackView.topAnchor).active = true
         self.leftAnchor.constraintEqualToAnchor(stackView.leftAnchor).active = true
         stackView.bottomAnchor.constraintEqualToAnchor(self.bottomAnchor).active = true
         stackView.rightAnchor.constraintEqualToAnchor(self.rightAnchor).active = true
+        
+        end = NSDate()
+        timeInterval = end.timeIntervalSinceDate(start)
+        print("UIView tree built in \(timeInterval) seconds")
+        
         
         //load images
         //            for loadableImage in _images {
@@ -98,10 +104,7 @@ class MarkdownView: UIView, UITextViewDelegate {
     
     func getViewForElement(element: MMElement, document: MMDocument, currentText: NSMutableAttributedString, level: Int = 0) -> UIView? {
         
-        var contentStackView = UIStackView()
-        contentStackView.axis = UILayoutConstraintAxis.Vertical
-        contentStackView.alignment = UIStackViewAlignment.Leading
-        contentStackView.distribution = UIStackViewDistribution.EqualSpacing
+        var elementSubviews: [UIView] = []
         
         var textFormatting: BaseTextFormatting?
         var viewFormatting: BaseViewFormatting?
@@ -182,12 +185,12 @@ class MarkdownView: UIView, UITextViewDelegate {
             break;
         case MMElementTypeHorizontalRule:
             //print("\(String(count: level, repeatedValue: "\t" as Character))Horizontal Rule")
-            tryAddTextView(currentText, to: contentStackView, level: level + 1)
+            tryAddTextView(currentText, to: &elementSubviews, level: level + 1)
             let horizontalRuleView = UIView()
             horizontalRuleView.backgroundColor = UIColor.lightGrayColor()
             horizontalRuleView.heightAnchor.constraintEqualToConstant(1)
             horizontalRuleView.widthAnchor.constraintEqualToConstant(275)
-            contentStackView.addArrangedSubview(horizontalRuleView)
+            elementSubviews.append(horizontalRuleView)
             break;
         case MMElementTypeStrikethrough:
             textFormatting = formatting.strikethroughText
@@ -208,8 +211,8 @@ class MarkdownView: UIView, UITextViewDelegate {
                 let imageView = UIImageView()
                 imageView.contentMode = UIViewContentMode.ScaleAspectFit
                 _images.append(LoadableImage(imageView: imageView, url: imageURL))
-                tryAddTextView(currentText, to: contentStackView, level: level + 1)
-                contentStackView.addArrangedSubview(imageView)
+                tryAddTextView(currentText, to: &elementSubviews, level: level + 1)
+                elementSubviews.append(imageView)
                 viewFormatting = formatting.image
             }
             break;
@@ -266,8 +269,8 @@ class MarkdownView: UIView, UITextViewDelegate {
                         currentText.appendAttributedString(NSAttributedString(string: (document.markdown as NSString).substringWithRange(child.range), attributes: formattingAttributes))
                     }
                 } else if let view = getViewForElement(child as! MMElement, document: document, currentText: currentText, level: level + 1) {
-                    tryAddTextView(currentText, to: contentStackView, level: level + 1)
-                    contentStackView.addArrangedSubview(view)
+                    tryAddTextView(currentText, to: &elementSubviews, level: level + 1)
+                    elementSubviews.append(view)
                 }
             }
         }
@@ -277,7 +280,24 @@ class MarkdownView: UIView, UITextViewDelegate {
             if currentText.string.hasSuffix("\n") {
                 currentText.deleteCharactersInRange(NSRange(location: currentText.string.characters.count - 1, length: 1))
             }
-            tryAddTextView(currentText, to: contentStackView, level: level + 1)
+            tryAddTextView(currentText, to: &elementSubviews, level: level + 1)
+        }
+        
+        var elementView: UIView
+        
+        if elementSubviews.count == 0 {
+            return nil
+        } else if elementSubviews.count == 1 {
+            elementView = elementSubviews.first!
+        } else {
+            let elementStackView = UIStackView()
+            elementStackView.axis = UILayoutConstraintAxis.Vertical
+            elementStackView.alignment = UIStackViewAlignment.Leading
+//            elementStackView.distribution = UIStackViewDistribution.EqualSpacing
+            
+            elementSubviews.forEach({ elementStackView.addArrangedSubview($0) })
+            
+            elementView = elementStackView
         }
         
         //handle list item layout
@@ -285,8 +305,9 @@ class MarkdownView: UIView, UITextViewDelegate {
             let listItemStackView = UIStackView()
             listItemStackView.axis = UILayoutConstraintAxis.Horizontal
             listItemStackView.spacing = formatting.itemSpacing
+            listItemStackView.alignment = UIStackViewAlignment.Top
             let delimiterLabel = UILabel()
-            delimiterLabel.textAlignment = NSTextAlignment.Left
+            delimiterLabel.setContentHuggingPriority(999, forAxis: UILayoutConstraintAxis.Horizontal)
             delimiterLabel.font = textFormatting?.font
             delimiterLabel.textColor = textFormatting?.color
             if element.parent?.type == MMElementTypeNumberedList {
@@ -295,99 +316,85 @@ class MarkdownView: UIView, UITextViewDelegate {
                 delimiterLabel.text = "•"
             }
             
-            //force align-top
-            let delimiterContainerView = UIView()
-            delimiterContainerView.addSubview(delimiterLabel)
-            delimiterLabel.translatesAutoresizingMaskIntoConstraints = false
-            delimiterLabel.topAnchor.constraintEqualToAnchor(delimiterContainerView.topAnchor).active = true
-            delimiterContainerView.bottomAnchor.constraintGreaterThanOrEqualToAnchor(delimiterLabel.bottomAnchor).active = true
-            delimiterLabel.rightAnchor.constraintEqualToAnchor(delimiterContainerView.rightAnchor).active = true
-            delimiterLabel.leftAnchor.constraintEqualToAnchor(delimiterContainerView.leftAnchor).active = true
-            
-            listItemStackView.addArrangedSubview(delimiterContainerView)
-            listItemStackView.addArrangedSubview(contentStackView)
-            contentStackView = listItemStackView
+            listItemStackView.addArrangedSubview(delimiterLabel)
+            listItemStackView.addArrangedSubview(elementView)
+            elementView = listItemStackView
         }
         
-        if contentStackView.arrangedSubviews.count > 0 {
-            if viewFormatting?.backgroundColor != nil || viewFormatting?.margins != nil || viewFormatting?.padding != nil || viewFormatting?.topEdgeView != nil || viewFormatting?.rightEdgeView != nil || viewFormatting?.bottomEdgeView != nil || viewFormatting?.leftEdgeView != nil {
-                
-                //conditionally add surrounding edge views
-                var contentView: UIView
-                if viewFormatting?.topEdgeView != nil || viewFormatting?.rightEdgeView != nil || viewFormatting?.bottomEdgeView != nil || viewFormatting?.leftEdgeView != nil {
-                    let innerVerticalStackView = UIStackView()
-                    innerVerticalStackView.axis = UILayoutConstraintAxis.Vertical
-                    if let topEdgeView = viewFormatting?.topEdgeView {
-                        innerVerticalStackView.addArrangedSubview(topEdgeView)
-                    }
-                    if viewFormatting?.leftEdgeView != nil || viewFormatting?.rightEdgeView != nil {
-                        let innerHorizontalStackView = UIStackView()
-                        innerHorizontalStackView.axis = UILayoutConstraintAxis.Horizontal
-                        if let leftEdgeView = viewFormatting?.leftEdgeView {
-                            innerHorizontalStackView.addArrangedSubview(leftEdgeView)
-                        }
-                        innerHorizontalStackView.addArrangedSubview(contentStackView)
-                        if let rightEdgeView = viewFormatting?.rightEdgeView {
-                            innerHorizontalStackView.addArrangedSubview(rightEdgeView)
-                        }
-                        innerVerticalStackView.addArrangedSubview(innerHorizontalStackView)
-                    } else {
-                        innerVerticalStackView.addArrangedSubview(contentStackView)
-                    }
-                    if let bottomEdgeView = viewFormatting?.bottomEdgeView {
-                        innerVerticalStackView.addArrangedSubview(bottomEdgeView)
-                    }
-                    contentView = innerVerticalStackView
-                } else {
-                    contentView = contentStackView
-                }
-                
-                //set padding
-                if viewFormatting?.backgroundColor != nil || viewFormatting?.padding != nil {
-                    let backgroundView = UIView()
-                    backgroundView.backgroundColor = viewFormatting?.backgroundColor
-                    
-                    backgroundView.addSubview(contentView)
-                    contentView.translatesAutoresizingMaskIntoConstraints = false
-                    contentView.topAnchor.constraintEqualToAnchor(backgroundView.topAnchor, constant: viewFormatting?.padding?.top ?? 0).active = true
-                    contentView.leftAnchor.constraintEqualToAnchor(backgroundView.leftAnchor, constant: viewFormatting?.padding?.left ?? 0).active = true
-                    backgroundView.bottomAnchor.constraintEqualToAnchor(contentView.bottomAnchor, constant: viewFormatting?.padding?.bottom ?? 0).active = true
-                    backgroundView.rightAnchor.constraintEqualToAnchor(contentView.rightAnchor, constant: viewFormatting?.padding?.right ?? 0).active = true
-                    
-                    contentView = backgroundView
-                }
-                
-                contentView.layer.cornerRadius = viewFormatting?.cornerRadius ?? 0
-                contentView.layer.borderWidth = viewFormatting?.borderWidth ?? 0
-                contentView.layer.borderColor = viewFormatting?.borderColor?.CGColor
-                
-                //set margins
-                if let margins = viewFormatting?.margins {
-                    let containerView = UIView()
-                    containerView.addSubview(contentView)
-                    contentView.translatesAutoresizingMaskIntoConstraints = false
-                    contentView.topAnchor.constraintEqualToAnchor(containerView.topAnchor, constant: margins.top).active = true
-                    contentView.leftAnchor.constraintEqualToAnchor(containerView.leftAnchor, constant: margins.left).active = true
-                    containerView.bottomAnchor.constraintEqualToAnchor(contentView.bottomAnchor, constant: margins.bottom).active = true
-                    containerView.rightAnchor.constraintEqualToAnchor(contentView.rightAnchor, constant: margins.right).active = true
-                    
-                    contentView = containerView
-                }
-                
-                return contentView
+        //conditionally add surrounding edge views
+        if viewFormatting?.topEdgeView != nil || viewFormatting?.rightEdgeView != nil || viewFormatting?.bottomEdgeView != nil || viewFormatting?.leftEdgeView != nil {
+            let innerVerticalStackView = UIStackView()
+            innerVerticalStackView.axis = UILayoutConstraintAxis.Vertical
+            if let topEdgeView = viewFormatting?.topEdgeView {
+                innerVerticalStackView.addArrangedSubview(topEdgeView)
             }
-            
-            return contentStackView
+            if viewFormatting?.leftEdgeView != nil || viewFormatting?.rightEdgeView != nil {
+                let innerHorizontalStackView = UIStackView()
+                innerHorizontalStackView.axis = UILayoutConstraintAxis.Horizontal
+                if let leftEdgeView = viewFormatting?.leftEdgeView {
+                    innerHorizontalStackView.addArrangedSubview(leftEdgeView)
+                }
+                innerHorizontalStackView.addArrangedSubview(elementView)
+                if let rightEdgeView = viewFormatting?.rightEdgeView {
+                    innerHorizontalStackView.addArrangedSubview(rightEdgeView)
+                }
+                innerVerticalStackView.addArrangedSubview(innerHorizontalStackView)
+            } else {
+                innerVerticalStackView.addArrangedSubview(elementView)
+            }
+            if let bottomEdgeView = viewFormatting?.bottomEdgeView {
+                innerVerticalStackView.addArrangedSubview(bottomEdgeView)
+            }
+            elementView = innerVerticalStackView
         }
         
-        return nil
+        //Add formatting view enclosure if necessary. Caution is taken here because adding constraints is expensive in this context for some reason.
+        if viewFormatting?.padding != nil ||
+            (elementView is UIStackView && (viewFormatting?.backgroundColor != nil || viewFormatting?.cornerRadius != nil || viewFormatting?.borderWidth != nil || viewFormatting?.borderColor != nil)) {
+            let backgroundView = UIView()
+            elementView.translatesAutoresizingMaskIntoConstraints = false
+            backgroundView.addSubview(elementView)
+            elementView.topAnchor.constraintEqualToAnchor(backgroundView.topAnchor, constant: viewFormatting?.padding?.top ?? 0).active = true
+            elementView.leftAnchor.constraintEqualToAnchor(backgroundView.leftAnchor, constant: viewFormatting?.padding?.left ?? 0).active = true
+            backgroundView.bottomAnchor.constraintEqualToAnchor(elementView.bottomAnchor, constant: viewFormatting?.padding?.bottom ?? 0).active = true
+            backgroundView.rightAnchor.constraintEqualToAnchor(elementView.rightAnchor, constant: viewFormatting?.padding?.right ?? 0).active = true
+            
+            elementView = backgroundView
+        }
+        
+        if let backgroundColor = viewFormatting?.backgroundColor {
+            elementView.backgroundColor = backgroundColor
+        }
+        if let cornerRadius = viewFormatting?.cornerRadius {
+            elementView.layer.cornerRadius = cornerRadius
+        }
+        if let borderWidth = viewFormatting?.borderWidth, let borderColor = viewFormatting?.borderColor?.CGColor {
+            elementView.layer.borderWidth = borderWidth
+            elementView.layer.borderColor = borderColor
+        }
+        
+        //set margins
+        if let margins = viewFormatting?.margins {
+            let containerView = UIView()
+            containerView.addSubview(elementView)
+            elementView.translatesAutoresizingMaskIntoConstraints = false
+            elementView.topAnchor.constraintEqualToAnchor(containerView.topAnchor, constant: margins.top).active = true
+            elementView.leftAnchor.constraintEqualToAnchor(containerView.leftAnchor, constant: margins.left).active = true
+            containerView.bottomAnchor.constraintEqualToAnchor(elementView.bottomAnchor, constant: margins.bottom).active = true
+            containerView.rightAnchor.constraintEqualToAnchor(elementView.rightAnchor, constant: margins.right).active = true
+            
+            elementView = containerView
+        }
+        
+        return elementView
     }
     
-    func tryAddTextView(currentText: NSMutableAttributedString, to stackView: UIStackView, level: Int = 0) {
+    func tryAddTextView(currentText: NSMutableAttributedString, inout to views: [UIView], level: Int = 0) {
         if currentText.length > 0 {
             //print("\(String(count: level, repeatedValue: "\t" as Character))(Text Flushed: \(currentText.string.stringByReplacingOccurrencesOfString("\n", withString: "\\n")))")
             let textView = UITextView()
             textView.delegate = self
+            textView.setContentCompressionResistancePriority(999, forAxis: UILayoutConstraintAxis.Horizontal)
             textView.editable = false
             textView.textContainer.lineFragmentPadding = 0
             textView.textContainerInset = UIEdgeInsetsZero
@@ -395,7 +402,7 @@ class MarkdownView: UIView, UITextViewDelegate {
             textView.scrollEnabled = false
             textView.attributedText = currentText
             currentText.setAttributedString(NSAttributedString(string: ""))
-            stackView.addArrangedSubview(textView)
+            views.append(textView)
         }
     }
     
