@@ -9,7 +9,7 @@
 import UIKit
 
 class ViewController: UIViewController {
-    @IBOutlet weak var contentView: UIView!
+    @IBOutlet weak var scrollView: UIScrollView!
     
     let start = NSDate()
     override func viewDidLoad() {
@@ -19,11 +19,12 @@ class ViewController: UIViewController {
         
         let markdownView = MarkdownView(markdown: markdown)
         markdownView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(markdownView)
-        contentView.topAnchor.constraintEqualToAnchor(markdownView.topAnchor).active = true
-        contentView.rightAnchor.constraintEqualToAnchor(markdownView.rightAnchor).active = true
-        contentView.leftAnchor.constraintEqualToAnchor(markdownView.leftAnchor).active = true
-        contentView.bottomAnchor.constraintEqualToAnchor(markdownView.bottomAnchor).active = true
+        scrollView.addSubview(markdownView)
+        scrollView.topAnchor.constraintEqualToAnchor(markdownView.topAnchor).active = true
+        scrollView.leftAnchor.constraintEqualToAnchor(markdownView.leftAnchor).active = true
+        markdownView.bottomAnchor.constraintEqualToAnchor(scrollView.bottomAnchor).active = true
+        markdownView.rightAnchor.constraintEqualToAnchor(scrollView.rightAnchor).active = true
+        markdownView.widthAnchor.constraintEqualToAnchor(scrollView.widthAnchor).active = true
         
         markdownView.didFinishLoadingImage = { imageView in
             print("Loaded: \( imageView.sd_imageURL())")
