@@ -14,7 +14,7 @@ class MarkdownView: UIView, UITextViewDelegate {
     
     var markdown: String {
         didSet {
-            self.subviews.forEach({ sv in sv.removeFromSuperview() })
+            buildSubViews()
         }
     }
     var formatting: MarkdownFormatting
@@ -28,6 +28,8 @@ class MarkdownView: UIView, UITextViewDelegate {
         self.markdown = markdown
         self.formatting = MarkdownView.getDefaultFormatting()
         super.init(frame: CGRectZero)
+        
+        buildSubViews()
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -36,14 +38,15 @@ class MarkdownView: UIView, UITextViewDelegate {
         super.init(coder: aDecoder)
     }
     
-    override func layoutSubviews() {
-        if subviews.count == 0 && markdown != "" {
-            buildSubViews()
-        }
-        super.layoutSubviews()
+    override init(frame: CGRect) {
+        markdown = ""
+        self.formatting = MarkdownView.getDefaultFormatting()
+        super.init(frame: frame)
     }
     
     func buildSubViews() {
+        self.subviews.forEach({ $0.removeFromSuperview() })
+        
         var start = NSDate()
         let parser = MMParser.init(extensions: MMMarkdownExtensions.GitHubFlavored)
         let document = try! parser.parseMarkdown(markdown)
@@ -88,18 +91,18 @@ class MarkdownView: UIView, UITextViewDelegate {
         
         
         //load images
-        //            for loadableImage in _images {
-        //                loadableImage.imageView.sd_setImageWithURL(
-        //                    loadableImage.url,
-        //                    completed: { [weak self] (image, error, cacheType, url) in
-        //                        loadableImage.loaded = true
-        //                        self?.didFinishLoadingImage?(loadableImage.imageView)
-        //                        if self != nil && self!._images.indexOf({ !$0.loaded }) == nil {
-        //                            self!.didFinishLoadingImages?()
-        //                        }
-        //                    }
-        //                )
-        //            }
+        for loadableImage in _images {
+            loadableImage.imageView.sd_setImageWithURL(
+                loadableImage.url,
+                completed: { [weak self] (image, error, cacheType, url) in
+                    loadableImage.loaded = true
+                    self?.didFinishLoadingImage?(loadableImage.imageView)
+                    if self != nil && self!._images.indexOf({ !$0.loaded }) == nil {
+                        self!.didFinishLoadingImages?()
+                    }
+                }
+            )
+        }
     }
     
     func getViewForElement(element: MMElement, document: MMDocument, currentText: NSMutableAttributedString, level: Int = 0) -> UIView? {
@@ -393,13 +396,13 @@ class MarkdownView: UIView, UITextViewDelegate {
         if currentText.length > 0 {
             //print("\(String(count: level, repeatedValue: "\t" as Character))(Text Flushed: \(currentText.string.stringByReplacingOccurrencesOfString("\n", withString: "\\n")))")
             let textView = UITextView()
-            textView.delegate = self
-            textView.setContentCompressionResistancePriority(999, forAxis: UILayoutConstraintAxis.Horizontal)
-            textView.editable = false
-            textView.textContainer.lineFragmentPadding = 0
-            textView.textContainerInset = UIEdgeInsetsZero
-            textView.backgroundColor = UIColor.clearColor()
             textView.scrollEnabled = false
+            textView.editable = false
+            textView.delegate = self
+            textView.textContainerInset = UIEdgeInsetsZero
+            textView.textContainer.lineFragmentPadding = 0
+            textView.setContentCompressionResistancePriority(999, forAxis: UILayoutConstraintAxis.Horizontal)
+            textView.backgroundColor = UIColor.clearColor()
             textView.attributedText = currentText
             currentText.setAttributedString(NSAttributedString(string: ""))
             views.append(textView)
