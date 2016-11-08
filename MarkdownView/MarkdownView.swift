@@ -32,6 +32,14 @@ class MarkdownView: UIView, UITextViewDelegate {
         buildSubViews()
     }
     
+    init(markdown: String, formatting: MarkdownFormatting) {
+        self.markdown = markdown
+        self.formatting = formatting
+        super.init(frame: CGRectZero)
+        
+        buildSubViews()
+    }
+    
     required init?(coder aDecoder: NSCoder) {
         markdown = ""
         self.formatting = MarkdownView.getDefaultFormatting()
